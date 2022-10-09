@@ -49,6 +49,48 @@ this.$createDialog({
 
 ### 适合的业务场景
 
+上面描述了 `vue-create-api` 的使用，那回归到现实的业务场景中，到底怎样的业务适合使用 `vue-create-api` 呢？
+
+其实可以简单的举几个例子，我们使用的 `Vant` 与 `ElementUI` 中的通知 `notify` ，消息提醒 `message`，轻提示 `toast`，这些组件都是支持api方式的调用，也就是说你可以直接在函数中进行调用，但站在开发的角度来看，这些组件的功能比较单一，所以一般情况下我们也就称他们为"基础组件"，因为这些组件与业务毫不相关，那开发过程中抽离的业务组件可不可以也是用api的方式来调用业务组件呢？
+
+当然是可以的！
+
+下面看一个真是的业务场景，
+
+<img src="./example.png" alt="example" style="zoom:30%;" />
+
+这张ui图所描述的需求是当点击图中圆形的添加按钮时会跳转到一个新的页面，新页面是一个支持选人、选机构、选部门的帮助框，当然根据传递不同的 `props` 该组件会展示不同的形态用来支持不同场景的业务。
+
+仔细分析这个需求，我们既要想向该组件传递 `props`，又要在该组件选人结束以后监听 `$on` 该组件的事件回调，拿到选人的数据，可能你会想到可以使用路由传参，当进入这个页面时把对应的 `props`传入，选择结束以后再路由回来把数据通过路由的 `query` 携带回来。
+
+是的，这虽然是一种方案，但这种实现会存在很多问题，首先url传参携带不了大量的数据，选人组件支持多选，数据量蛮大，其次是获取选择的数据，既然选择了路由传参这种方案就意味着始终要依赖路由钩子函数或者组件生命周期来获取路由的 `query`，你既要在进入选人组件之前的页面做这个操作也要在选人组件里做这个操作，非常麻烦。
+
+那如果把他做成 `apiComponent` 呢？
+
+~~~javascript
+function onClick() {
+  const userHelpComp = instance.proxy
+  .$createUserHelp({
+    $props: {
+      approvalData: approval.value,
+      btnData: curButton,
+      processContext: formContext.value.processContext
+    },
+    $events: {
+      onClose: () => {
+        userHelpComp.hide()
+      },
+      onConfirm: selectData => {
+        // 获取选人组件数据
+      }
+    }
+  })
+  .show()
+}
+~~~
+
+现在我们把选人组件变成了一个 `apiComponent`，`show`、`hide` 函数让选人组件做显隐，`$props`向组件动态传参，`$events`  监听组件派发的事件获取组件回调数据，这样我们就完整的实现了整个组件的单向数据流，同时也解决了上面路由传参的缺点，更重要的是现在我们可以在任意一处调用选人组件了，功能相比路由传参更加强大了。
+
 ### create-api 源码分析
 
 1. 首先是代码的入口文件，这里定义了 `install` 函数，并且向外部暴露，那么这个函数就是我们在使 `Vue.use()` 的时候调用的，这也是我们基于 `Vue` 去编写第三方插件的一个常用的做法。
